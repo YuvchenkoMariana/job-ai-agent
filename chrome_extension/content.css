@@ -1,0 +1,129 @@
+/* Indeed Navigator Control Panel Styles */
+#indeed-navigator-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 250px;
+  background: #ffffff;
+  border: 2px solid #2557a7;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 999999;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+}
+
+.nav-panel-header {
+  background: #2557a7;
+  color: white;
+  padding: 10px 15px;
+  font-weight: bold;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+}
+
+.nav-btn-minimize {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  line-height: 20px;
+}
+
+.nav-btn-minimize:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.nav-panel-content {
+  padding: 15px;
+}
+
+.nav-status {
+  margin-bottom: 15px;
+  font-size: 13px;
+  color: #333;
+}
+
+#nav-status {
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+#nav-status.stopped {
+  background: #f0f0f0;
+  color: #666;
+}
+
+#nav-status.running {
+  background: #d4edda;
+  color: #155724;
+  animation: pulse 2s infinite;
+}
+
+#nav-status.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.nav-btn {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-btn-start {
+  background: #28a745;
+  color: white;
+}
+
+.nav-btn-start:hover:not(:disabled) {
+  background: #218838;
+}
+
+.nav-btn-stop {
+  background: #dc3545;
+  color: white;
+}
+
+.nav-btn-stop:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nav-info {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+  color: #666;
+}
+
+#nav-clicks {
+  font-weight: bold;
+  color: #2557a7;
+}

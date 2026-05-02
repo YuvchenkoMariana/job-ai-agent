@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Dou Job Navigator",
+  "version": "1.0",
+  "description": "Automate navigation through Dou job listings",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.svg",
+      "48": "icon48.svg",
+      "128": "icon128.svg"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://jobs.dou.ua/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://jobs.dou.ua/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "icon16.svg",
+    "48": "icon48.svg",
+    "128": "icon128.svg"
+  }
+}
