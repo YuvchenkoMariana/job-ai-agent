@@ -1,0 +1,10 @@
+{
+  "name": "job-protocol-js",
+  "private": true,
+  "version": "1.0.0",
+  "description": "JavaScript protocol models for job descriptions",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
+
