@@ -1,0 +1,15 @@
+{
+  "name": "job-ai-agent",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:extension": "esbuild chrome_extension/content.src.ts --bundle --outfile=chrome_extension/content.js --format=iife",
+    "watch:extension": "esbuild chrome_extension/content.src.ts --bundle --outfile=chrome_extension/content.js --format=iife --watch",
+    "build:protocol": "tsc -p protocol/js/tsconfig.json",
+    "test:protocol": "node --test protocol/js/tests/job.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0"
+  }
+}

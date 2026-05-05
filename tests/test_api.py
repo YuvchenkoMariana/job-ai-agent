@@ -5,6 +5,7 @@ Run with:  pytest tests/test_api.py -v
 import pytest
 from fastapi.testclient import TestClient
 
+from protocol.python.job import JobDescriptionExtension, JobDescriptionList
 from server.fast_api import app, _clear_jobs_db
 from backend.db.database import init_db
 
@@ -132,3 +133,25 @@ class TestSyncJobs:
             {"job_title": "Dev", "source_url": "https://jobs.dou.ua/1"},
         ))
         assert client.get("/api/jobs").json()[0]["salary_currency"] == "USD"
+    
+    def test_sync_batch_via_job_description_list(self):
+        jl = JobDescriptionList([
+            JobDescriptionExtension(
+                job_title="VBA / Python Developer (Automation & Legacy Modernization)",
+                source_url="https://jobs.dou.ua/companies/intelvision/vacancies/356809/",
+            ),
+        ])
+
+        res = client.post(
+            "/api/jobs/sync",
+            content=jl.to_json(),
+            headers={"Content-Type": "application/json"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"count": 1}
+
+        jobs = client.get("/api/jobs").json()
+        assert len(jobs) == 1
+        assert jobs[0]["job_title"] == "VBA / Python Developer (Automation & Legacy Modernization)"
+        assert jobs[0]["source_url"] == "https://jobs.dou.ua/companies/intelvision/vacancies/356809/"
+

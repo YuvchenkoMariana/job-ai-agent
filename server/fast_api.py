@@ -1,16 +1,111 @@
 from __future__ import annotations
 
+import json
+import logging
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, TYPE_CHECKING
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 
 from backend.db.database import Session, JobVacancy, init_db
 from backend.ai.enricher import fetch_and_save_text, enrich_from_text
-from protocol.python.job import JobDescription, JobDescriptionList
+from protocol.python.job import JobDescriptionExtension, JobDescriptionList
 
+if TYPE_CHECKING:
+    from backend.db.database import JobVacancy as JobVacancyType
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
+@dataclass(frozen=True, slots=True)
+class JobDescription(JobDescriptionExtension):
+    id: int | None = None
+    company_name: str | None = None
+    company_overview: str | None = None
+    location: str | None = None
+    work_type: str | None = None
+    role_summary: str | None = None
+    responsibilities: str | None = None
+    required_quals: str | None = None
+    preferred_quals: str | None = None
+    tools_and_methods: str | None = None
+    what_success_looks: str | None = None
+    salary_min: int | None = None
+    salary_max: int | None = None
+    salary_currency: str = "USD"
+    language_requirements: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "JobDescription":
+        return cls(
+            job_title=str(data["job_title"]),
+            source_url=str(data["source_url"]),
+            id=int(data["id"]) if data.get("id") is not None else None,
+            company_name=data.get("company_name"),
+            company_overview=data.get("company_overview"),
+            location=data.get("location"),
+            work_type=data.get("work_type"),
+            role_summary=data.get("role_summary"),
+            responsibilities=data.get("responsibilities"),
+            required_quals=data.get("required_quals"),
+            preferred_quals=data.get("preferred_quals"),
+            tools_and_methods=data.get("tools_and_methods"),
+            what_success_looks=data.get("what_success_looks"),
+            salary_min=data.get("salary_min"),
+            salary_max=data.get("salary_max"),
+            salary_currency=data.get("salary_currency") or "USD",
+            language_requirements=data.get("language_requirements"),
+        )
+
+    @classmethod
+    def from_row(cls, row: "JobVacancyType") -> "JobDescription":
+        return cls(
+            id=row.id,
+            job_title=row.job_title,
+            source_url=row.source_url or "",
+            company_name=row.company_name,
+            company_overview=row.company_overview,
+            location=row.location,
+            work_type=row.work_type,
+            role_summary=row.role_summary,
+            responsibilities=row.responsibilities,
+            required_quals=row.required_quals,
+            preferred_quals=row.preferred_quals,
+            tools_and_methods=row.tools_and_methods,
+            what_success_looks=row.what_success_looks,
+            salary_min=row.salary_min,
+            salary_max=row.salary_max,
+            salary_currency=row.salary_currency or "USD",
+            language_requirements=row.language_requirements,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "job_title": self.job_title,
+            "source_url": self.source_url,
+            "company_name": self.company_name,
+            "company_overview": self.company_overview,
+            "location": self.location,
+            "work_type": self.work_type,
+            "role_summary": self.role_summary,
+            "responsibilities": self.responsibilities,
+            "required_quals": self.required_quals,
+            "preferred_quals": self.preferred_quals,
+            "tools_and_methods": self.tools_and_methods,
+            "what_success_looks": self.what_success_looks,
+            "salary_min": self.salary_min,
+            "salary_max": self.salary_max,
+            "salary_currency": self.salary_currency,
+            "language_requirements": self.language_requirements,
+        }
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,9 +149,12 @@ def sync_jobs(payload: JobDescriptionList) -> dict[str, int]:
     if not payload.jobs:
         raise HTTPException(status_code=422, detail="Payload must not be empty")
 
+    logger.info("sync_jobs called with %d job(s)", len(payload.jobs))
+
     count = 0
     with Session() as session:
         for item in payload.jobs:
+            logger.debug("processing item: job_title=%r, source_url=%r", item.job_title, item.source_url)
             job_title = item.job_title.strip()
             source_url = (item.source_url or "").strip()
 
@@ -80,6 +178,7 @@ def sync_jobs(payload: JobDescriptionList) -> dict[str, int]:
 
         session.commit()
 
+    logger.info("sync_jobs upserted %d job(s)", count)
     return {"count": count}
 
 
@@ -132,7 +231,7 @@ def fetch_text_all() -> dict[str, int]:
             fetch_and_save_text(job_id)
             done += 1
         except Exception as e:
-            print(f"[fetch-text-all] job {job_id} failed: {e}")
+            logger.error("fetch-text-all job %d failed: %s", job_id, e)
             failed += 1
 
     return {"done": done, "failed": failed}
@@ -170,7 +269,7 @@ def enrich_all() -> dict[str, int]:
             enrich_from_text(job_id)
             done += 1
         except Exception as e:
-            print(f"[enrich-all] job {job_id} failed: {e}")
+            logger.error("enrich-all job %d failed: %s", job_id, e)
             failed += 1
 
     return {"enriched": done, "failed": failed}

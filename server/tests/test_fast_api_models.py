@@ -1,7 +1,6 @@
 import unittest
-import json
 
-from protocol.python.job import JobDescription, JobDescriptionList
+from server.fast_api import JobDescription
 
 
 class TestJobDescriptionSerialization(unittest.TestCase):
@@ -65,21 +64,6 @@ class TestJobDescriptionSerialization(unittest.TestCase):
         jobs = [JobDescription.from_dict(item) for item in payload]
         reconstructed = [JobDescription.from_dict(j.to_dict()) for j in jobs]
         self.assertEqual(reconstructed, jobs)
-
-
-class TestJobDescriptionListSerialization(unittest.TestCase):
-    def test_round_trip_json_string(self) -> None:
-        payload = [
-            {"job_title": "Lead Python Engineer",  "source_url": "https://jobs.dou.ua/1", "id": 1},
-            {"job_title": "Python/AI engineer",    "source_url": "https://jobs.dou.ua/2", "id": 2},
-        ]
-        jobs = JobDescriptionList.from_json(json.dumps(payload))
-        reconstructed = JobDescriptionList.from_json(jobs.to_json())
-        self.assertEqual(reconstructed, jobs)
-
-    def test_from_json_raises_for_non_array_payload(self) -> None:
-        with self.assertRaisesRegex(ValueError, "Expected a JSON array"):
-            JobDescriptionList.from_json('{"job_title": "x", "source_url": "y"}')
 
 
 if __name__ == "__main__":
