@@ -199,7 +199,7 @@ async function syncJobsToApi() {
     title: job.title || "",
     href: job.href || null,
   }));
-
+  console.log('Payload to sync:', JSON.stringify(payload, null, 2));
   try {
     const res = await fetch(`${API_BASE}/api/jobs/sync`, {
       method: "POST",

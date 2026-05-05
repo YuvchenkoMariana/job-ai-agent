@@ -175,3 +175,9 @@ def enrich_all() -> dict[str, int]:
 
     return {"enriched": done, "failed": failed}
 
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server.fast_api:app", host="0.0.0.0", port=8000, reload=True)
+
+

@@ -26,3 +26,4 @@ node_modules/
 .env.local
 
 .claude
+jobs_search.db
