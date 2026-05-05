@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from backend.db.database import Session, JobVacancy, init_db
-from backend.ai.enricher import enrich_job
+from backend.ai.enricher import fetch_and_save_text, enrich_from_text
 from protocol.python.job import JobDescription, JobDescriptionList
 
 
@@ -29,15 +29,6 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
-# Plugin request schema  (what the Chrome extension sends)
-# ---------------------------------------------------------------------------
-class PluginJob(BaseModel):
-    index: int = Field(ge=1, description="1-based position in the scraped list")
-    title: str = Field(default="")
-    href: str | None = Field(default=None)
-
-
-# ---------------------------------------------------------------------------
 # Test helper — exposed so tests can reset state between runs
 # ---------------------------------------------------------------------------
 def _clear_jobs_db() -> None:
@@ -55,19 +46,19 @@ def _clear_jobs_db() -> None:
     summary="Push scraped jobs from the plugin",
     response_description="How many jobs were upserted",
 )
-def sync_jobs(payload: list[PluginJob]) -> dict[str, int]:
+def sync_jobs(payload: JobDescriptionList) -> dict[str, int]:
     """
     Called by the Chrome extension after it finishes scraping.
     Upserts each job by source_url: insert if new, update title if exists.
     """
-    if not payload:
+    if not payload.jobs:
         raise HTTPException(status_code=422, detail="Payload must not be empty")
 
     count = 0
     with Session() as session:
-        for item in payload:
-            job_title = item.title.strip()
-            source_url = (item.href or "").strip()
+        for item in payload.jobs:
+            job_title = item.job_title.strip()
+            source_url = (item.source_url or "").strip()
 
             if not job_title and not source_url:
                 continue
@@ -106,61 +97,81 @@ def get_jobs() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# AI enrichment
+# AI enrichment — Step 2 + Step 3
 # ---------------------------------------------------------------------------
 
 @app.post(
+    "/api/jobs/{job_id}/fetch-text",
+    summary="Step 2 — fetch job page and save full text to DB",
+)
+def fetch_text_one(job_id: int) -> dict[str, int]:
+    """Fetches source_url for job_id and stores the raw page text in full_text."""
+    try:
+        text = fetch_and_save_text(job_id)
+        return {"job_id": job_id, "chars": len(text)}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post(
+    "/api/jobs/fetch-text-all",
+    summary="Step 2 for all jobs — fetch page text for every job without full_text",
+)
+def fetch_text_all() -> dict[str, int]:
+    """Fetches and saves page text for all jobs where full_text is still null."""
+    done, failed = 0, 0
+    with Session() as session:
+        jobs = session.query(JobVacancy).filter(
+            JobVacancy.full_text.is_(None),
+            JobVacancy.source_url.isnot(None),
+        ).all()
+        ids = [j.id for j in jobs]
+
+    for job_id in ids:
+        try:
+            fetch_and_save_text(job_id)
+            done += 1
+        except Exception as e:
+            print(f"[fetch-text-all] job {job_id} failed: {e}")
+            failed += 1
+
+    return {"done": done, "failed": failed}
+
+
+@app.post(
     "/api/jobs/{job_id}/enrich",
-    summary="Enrich one job with AI — fetches the page and fills in null fields",
+    summary="Step 3 — read full_text from DB and fill fields using OpenAI",
 )
 def enrich_one(job_id: int) -> dict:
-    with Session() as session:
-        job = session.query(JobVacancy).filter_by(id=job_id).first()
-        if not job:
-            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        if not job.source_url:
-            raise HTTPException(status_code=422, detail="Job has no source_url to fetch")
-
-        enriched = enrich_job(source_url=job.source_url, job_title=job.job_title)
-
-        for field, value in enriched.items():
-            if hasattr(job, field) and value is not None:
-                setattr(job, field, value)
-        job.updated_at = datetime.now(timezone.utc)
-        session.commit()
-
-        return JobDescription.from_row(job).to_dict()
+    """Reads full_text for job_id, calls OpenAI, saves structured fields to DB."""
+    try:
+        return enrich_from_text(job_id)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @app.post(
     "/api/jobs/enrich-all",
-    summary="Enrich all jobs that still have empty fields",
+    summary="Step 3 for all jobs — enrich every job that has full_text but no role_summary",
 )
 def enrich_all() -> dict[str, int]:
-    """Enriches every job whose role_summary is still null."""
-    enriched_count = 0
-    failed_count = 0
-
+    """Enriches all jobs that have full_text but not yet a role_summary."""
+    done, failed = 0, 0
     with Session() as session:
-        jobs = (
-            session.query(JobVacancy)
-            .filter(JobVacancy.role_summary.is_(None), JobVacancy.source_url.isnot(None))
-            .all()
-        )
+        ids = [
+            j.id for j in session.query(JobVacancy).filter(
+                JobVacancy.full_text.isnot(None),
+                JobVacancy.role_summary.is_(None),
+            ).all()
+        ]
 
-        for job in jobs:
-            try:
-                data = enrich_job(source_url=job.source_url, job_title=job.job_title)
-                for field, value in data.items():
-                    if hasattr(job, field) and value is not None:
-                        setattr(job, field, value)
-                job.updated_at = datetime.now(timezone.utc)
-                enriched_count += 1
-            except Exception as e:
-                print(f"[enrich-all] job {job.id} failed: {e}")
-                failed_count += 1
+    for job_id in ids:
+        try:
+            enrich_from_text(job_id)
+            done += 1
+        except Exception as e:
+            print(f"[enrich-all] job {job_id} failed: {e}")
+            failed += 1
 
-        session.commit()
-
-    return {"enriched": enriched_count, "failed": failed_count}
+    return {"enriched": done, "failed": failed}
 

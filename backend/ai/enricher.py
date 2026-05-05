@@ -1,10 +1,17 @@
 """
-enricher.py — fetches a job vacancy page and uses OpenAI to fill in all null fields.
+enricher.py — 3-step pipeline for enriching job vacancies.
 
-Usage:
-    from backend.ai.enricher import enrich_job
-    data = enrich_job(source_url="https://jobs.dou.ua/...", job_title="Python Dev")
-    # data is a dict with keys: company_name, location, role_summary, ...
+Step 1  /api/jobs/sync
+        Plugin sends {job_title, source_url} → saved to DB as a stub record.
+        (handled by fast_api.py — no function needed here)
+
+Step 2  fetch_and_save_text(job_id)
+        Reads source_url from DB → downloads the page → saves full raw text
+        into the full_text column.
+
+Step 3  enrich_from_text(job_id)
+        Reads full_text from DB → sends to OpenAI → parses structured fields
+        → saves company_name, location, salary, etc. back to DB.
 """
 from __future__ import annotations
 
@@ -15,6 +22,8 @@ import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from openai import OpenAI
+
+from backend.db.database import Session, JobVacancy
 
 load_dotenv()
 
@@ -47,10 +56,64 @@ Job posting text:
 {text}
 """
 
+_ENRICH_FIELDS = {
+    "company_name", "company_overview", "location", "work_type",
+    "role_summary", "responsibilities", "required_quals", "preferred_quals",
+    "tools_and_methods", "what_success_looks",
+    "salary_min", "salary_max", "salary_currency", "language_requirements",
+}
 
-# ── Page fetcher ──────────────────────────────────────────────────────────────
+
+# ── Step 2 ────────────────────────────────────────────────────────────────────
+def fetch_and_save_text(job_id: int) -> str:
+    """
+    Step 2: Fetch the job page from source_url and save the raw text
+    into the full_text column in the DB.
+
+    Returns the saved text.
+    """
+    with Session() as session:
+        job = session.query(JobVacancy).filter_by(id=job_id).first()
+        if not job:
+            raise ValueError(f"Job {job_id} not found")
+        if not job.source_url:
+            raise ValueError(f"Job {job_id} has no source_url")
+
+        text = _fetch_text(job.source_url)
+        job.full_text = text
+        session.commit()
+
+    return text
+
+
+# ── Step 3 ────────────────────────────────────────────────────────────────────
+def enrich_from_text(job_id: int) -> dict:
+    """
+    Step 3: Read full_text from the DB, send to OpenAI, parse structured fields,
+    and save them back to the DB.
+
+    Returns the enriched fields dict.
+    """
+    with Session() as session:
+        job = session.query(JobVacancy).filter_by(id=job_id).first()
+        if not job:
+            raise ValueError(f"Job {job_id} not found")
+        if not job.full_text:
+            raise ValueError(f"Job {job_id} has no full_text — run step 2 first")
+
+        enriched = _call_openai(job_title=job.job_title, text=job.full_text)
+
+        for field, value in enriched.items():
+            if field in _ENRICH_FIELDS and value is not None:
+                setattr(job, field, value)
+        session.commit()
+
+    return enriched
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
 def _fetch_text(url: str, max_chars: int = 8_000) -> str:
-    """Download a job page and return clean plain text (max_chars limit)."""
+    """Download a job page and return clean plain text."""
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -64,30 +127,55 @@ def _fetch_text(url: str, max_chars: int = 8_000) -> str:
     for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
         tag.decompose()
 
-    text = soup.get_text(separator="\n", strip=True)
-    return text[:max_chars]
+    return soup.get_text(separator="\n", strip=True)[:max_chars]
 
 
-# ── Main enricher ─────────────────────────────────────────────────────────────
-def enrich_job(source_url: str, job_title: str) -> dict:
-    """
-    Fetch the job page at source_url, ask OpenAI to extract structured fields,
-    and return a dict ready to be merged into a JobVacancy row.
-    """
-    text = _fetch_text(source_url)
-
+def _call_openai(job_title: str, text: str) -> dict:
+    """Send text to OpenAI and return parsed structured fields."""
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         temperature=0,
         response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "user",
-                "content": _PROMPT.format(job_title=job_title, text=text),
-            }
-        ],
+        messages=[{
+            "role": "user",
+            "content": _PROMPT.format(job_title=job_title, text=text),
+        }],
     )
-
     return json.loads(response.choices[0].message.content)
+
+
+# ── Run all 3 steps manually ──────────────────────────────────────────────────
+if __name__ == "__main__":
+    import pprint
+    from backend.db.database import init_db
+
+    init_db()
+
+    # ── Step 1: save stub (simulate what /api/jobs/sync does) ─────────────────
+    with Session() as session:
+        existing = session.query(JobVacancy).filter_by(
+            source_url="https://jobs.dou.ua/companies/skelar/vacancies/355543/?from=list_hot"
+        ).first()
+        if not existing:
+            job = JobVacancy(
+                job_title="Backend Engineer (PHP) — TENTENS Tech",
+                source_url="https://jobs.dou.ua/companies/skelar/vacancies/355543/?from=list_hot",
+            )
+            session.add(job)
+            session.commit()
+            job_id = job.id
+            print(f"Step 1 ✅ saved stub  id={job_id}")
+        else:
+            job_id = existing.id
+            print(f"Step 1 ✅ already exists  id={job_id}")
+
+    # ── Step 2: fetch page text → DB ──────────────────────────────────────────
+    text = fetch_and_save_text(job_id)
+    print(f"Step 2 ✅ saved {len(text)} chars of full_text")
+
+    # ── Step 3: OpenAI reads full_text → fills fields in DB ───────────────────
+    result = enrich_from_text(job_id)
+    print("Step 3 ✅ enriched fields:")
+    pprint.pprint(result)
 

@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import os
-
+# todo change timezone to utc
 SF_TZ = ZoneInfo("America/Los_Angeles")
 
 # ── Engine ────────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ if _db_url == "sqlite:///:memory:":
     )
 else:
     engine = create_engine(_db_url, echo=False)
-
+# todo remove that session?????
 Session = sessionmaker(bind=engine)
 
 
@@ -158,6 +158,9 @@ class JobVacancy(Base):
     source_url          = Column(String(500), nullable=True)
     language_requirements = Column(String(300), nullable=True)
 
+    # ── Raw page content (filled by step 2) ───────────────────────────────────
+    full_text           = Column(Text, nullable=True)
+
     # ── Meta ──────────────────────────────────────────────────────────────────
     created_at          = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at          = Column(DateTime, default=lambda: datetime.now(timezone.utc),
@@ -166,89 +169,6 @@ class JobVacancy(Base):
     def __repr__(self) -> str:
         return f"<JobVacancy id={self.id} title='{self.job_title}' company='{self.company_name}'>"
 
-
-# ── In-memory CV store (no DB required) ──────────────────────────────────────
-class MemoryCV:
-    """
-    Stores one or more CV records in plain Python dicts — no database needed.
-
-    Usage:
-        store = MemoryCV()
-        store.add(job_title="Python Developer", full_name="Ivan", ...)
-        store.add(job_title="Backend Engineer",  full_name="Ivan", ...)
-
-        store.all()           → list of all CV dicts
-        store.get(1)          → single CV dict by id
-        store.update(1, email="new@mail.com")
-        store.delete(1)
-        store.clear()
-        print(store)          → summary of all records
-    """
-
-    # shared fields — mirrors MyCv columns (excluding id / timestamps)
-    FIELDS: list[str] = [
-        "job_title", "full_name", "email", "phone", "location",
-        "github_url", "linkedin_url", "profile_summary",
-        "programming_skills", "tools_and_tech", "other_skills",
-        "projects", "education", "career_objective", "additional_info",
-    ]
-
-    def __init__(self) -> None:
-        self._records: list[dict] = []
-        self._next_id: int = 1
-
-    # ── write ──────────────────────────────────────────────────────────────
-    def add(self, **kwargs) -> dict:
-        """Create a new CV record and return it."""
-        record: dict = {"id": self._next_id}
-        for field in self.FIELDS:
-            record[field] = kwargs.get(field)           # None if not provided
-        record["created_at"] = datetime.now(timezone.utc)
-        record["updated_at"] = datetime.now(timezone.utc)
-        self._records.append(record)
-        self._next_id += 1
-        return record
-
-    def update(self, record_id: int, **kwargs) -> dict:
-        """Update fields of an existing record by id. Returns updated record."""
-        record = self.get(record_id)
-        for key, value in kwargs.items():
-            if key in self.FIELDS:
-                record[key] = value
-        record["updated_at"] = datetime.now(timezone.utc)
-        return record
-
-    def delete(self, record_id: int) -> None:
-        """Remove a record by id."""
-        self._records = [r for r in self._records if r["id"] != record_id]
-
-    def clear(self) -> None:
-        """Remove all records and reset the id counter."""
-        self._records = []
-        self._next_id = 1
-
-    # ── read ───────────────────────────────────────────────────────────────
-    def all(self) -> list[dict]:
-        """Return a copy of all records."""
-        return list(self._records)
-
-    def get(self, record_id: int) -> dict:
-        """Return a single record by id. Raises KeyError if not found."""
-        for record in self._records:
-            if record["id"] == record_id:
-                return record
-        raise KeyError(f"MemoryCV: no record with id={record_id}")
-
-    def __len__(self) -> int:
-        return len(self._records)
-
-    def __repr__(self) -> str:
-        lines = [f"MemoryCV ({len(self._records)} record(s)):"]
-        for r in self._records:
-            lines.append(
-                f"  id={r['id']}  job_title='{r['job_title']}'  name='{r['full_name']}'"
-            )
-        return "\n".join(lines)
 
 
 # ── Init helpers ──────────────────────────────────────────────────────────────
