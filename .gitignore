@@ -3,6 +3,7 @@
 Thumbs.db
 
 # Editor
+.idea/
 chrome_extension/.idea/
 .vscode/
 *.suo

@@ -17,7 +17,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://jobs.dou.ua/*"
+    "https://jobs.dou.ua/*",
+    "http://localhost:8000/*"
   ],
   "content_scripts": [
     {

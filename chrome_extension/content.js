@@ -185,6 +185,38 @@ function cleanupOldStates() {
   });
 }
 
+const API_BASE = "http://localhost:8000";
+
+async function syncJobsToApi() {
+  const jobs = getAllJobs();
+  if (!jobs.length) {
+    console.warn("No jobs to sync");
+    return;
+  }
+
+  const payload = jobs.map((job) => ({
+    index: job.index,
+    title: job.title || "",
+    href: job.href || null,
+  }));
+
+  try {
+    const res = await fetch(`${API_BASE}/api/jobs/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`Sync failed: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    console.log(`Synced ${data.count} jobs to API`);
+    updateStatus(`Synced ${data.count} jobs`, "stopped");
+  } catch (err) {
+    console.error("API sync error:", err);
+    updateStatus("Sync failed", "error");
+  }
+}
+
 function getAllJobs() {
   const xpath = '//*[@id="vacancyListId"]/ul';
   const listElement = getElementByXPath(xpath);
@@ -223,7 +255,7 @@ function openMoreJobs() {
       const isHidden = element.style.display === 'none' || window.getComputedStyle(element).display === 'none';
       if (isHidden) {
         console.warn('Target element is hidden (display: none), stopping navigation.');
-        getAllJobs();
+        syncJobsToApi();
         updateStatus('No more jobs', 'stopped');
         stopNavigation();
         return;
@@ -252,7 +284,7 @@ function openMoreJobs() {
         console.log('Clicked next button (alternative method)');
       } else {
         console.warn('No clickable element found, stopping navigation.');
-        getAllJobs();
+        syncJobsToApi();
         updateStatus('Element not found', 'error');
         stopNavigation();
       }

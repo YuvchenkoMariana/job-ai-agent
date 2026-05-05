@@ -1,0 +1,25 @@
+# API server
+fastapi
+uvicorn[standard]
+pydantic
+httpx
+
+# Database
+sqlalchemy
+
+# AI
+openai
+
+# Scraper
+selenium
+webdriver-manager
+beautifulsoup4
+lxml
+
+# Env
+python-dotenv
+
+# Tests
+pytest
+pytest-asyncio
+
