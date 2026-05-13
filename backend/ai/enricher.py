@@ -23,7 +23,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from backend.db.database import Session, JobVacancy
+from backend.db.database import Session, JobPosting
 
 load_dotenv()
 
@@ -65,7 +65,7 @@ _ENRICH_FIELDS = {
 
 
 # ── Step 2 ────────────────────────────────────────────────────────────────────
-def fetch_and_save_text(job_id: int) -> str:
+def fetch_and_save_text(job_id: str, *, user_id: str | None = None, force: bool = False) -> str:
     """
     Step 2: Fetch the job page from source_url and save the raw text
     into the full_text column in the DB.
@@ -73,11 +73,17 @@ def fetch_and_save_text(job_id: int) -> str:
     Returns the saved text.
     """
     with Session() as session:
-        job = session.query(JobVacancy).filter_by(id=job_id).first()
+        # JobPosting is global (stored once). `user_id` is accepted for backward
+        # compatibility but intentionally not used for filtering.
+        job = session.query(JobPosting).filter_by(id=job_id).first()
         if not job:
             raise ValueError(f"Job {job_id} not found")
         if not job.source_url:
             raise ValueError(f"Job {job_id} has no source_url")
+
+        # Cache: do not re-fetch the same vacancy page unless forced.
+        if job.full_text and not force:
+            return str(job.full_text)
 
         text = _fetch_text(job.source_url)
         job.full_text = text
@@ -87,7 +93,7 @@ def fetch_and_save_text(job_id: int) -> str:
 
 
 # ── Step 3 ────────────────────────────────────────────────────────────────────
-def enrich_from_text(job_id: int) -> dict:
+def enrich_from_text(job_id: str, *, user_id: str | None = None) -> dict:
     """
     Step 3: Read full_text from the DB, send to OpenAI, parse structured fields,
     and save them back to the DB.
@@ -95,11 +101,15 @@ def enrich_from_text(job_id: int) -> dict:
     Returns the enriched fields dict.
     """
     with Session() as session:
-        job = session.query(JobVacancy).filter_by(id=job_id).first()
+        job = session.query(JobPosting).filter_by(id=job_id).first()
         if not job:
             raise ValueError(f"Job {job_id} not found")
         if not job.full_text:
             raise ValueError(f"Job {job_id} has no full_text — run step 2 first")
+
+        # Cache: if already enriched, do nothing (prevents spending OpenAI tokens twice).
+        if job.role_summary:
+            return {"role_summary": job.role_summary}
 
         enriched = _call_openai(job_title=job.job_title, text=job.full_text)
 
@@ -154,11 +164,11 @@ if __name__ == "__main__":
 
     # ── Step 1: save stub (simulate what /api/jobs/sync does) ─────────────────
     with Session() as session:
-        existing = session.query(JobVacancy).filter_by(
+        existing = session.query(JobPosting).filter_by(
             source_url="https://jobs.dou.ua/companies/skelar/vacancies/355543/?from=list_hot"
         ).first()
         if not existing:
-            job = JobVacancy(
+            job = JobPosting(
                 job_title="Backend Engineer (PHP) — TENTENS Tech",
                 source_url="https://jobs.dou.ua/companies/skelar/vacancies/355543/?from=list_hot",
             )

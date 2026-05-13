@@ -1,0 +1,32 @@
+CV — PHP Developer (Entry Level) Contact Information
+
+Name: Oleksiy Kovalenko Email: oleksiy.kovalenko.dev@example.com
+
+Phone: +380 (XX) XXX-XX-XX Location: Kyiv, Ukraine (open to worldwide relocation) GitHub: github.com/oleksiykovalenko LinkedIn: linkedin.com/in/oleksiykovalenko
+
+Profile
+
+1 year experience PHP Developer with a solid understanding of web development fundamentals, object-oriented programming, and MVC architecture. Experienced in building REST APIs and working with relational databases. Passionate about clean code, best practices, and delivering maintainable web applications. Quick learner, open to new technologies, and motivated to grow in a professional team environment.
+
+Technical Skills Programming & Backend: PHP 8 (OOP, traits, interfaces, error handling, design patterns) Laravel (routing, Eloquent ORM, middleware, queues, migrations) Symfony (basic understanding, dependency injection, event system) REST API development (design, versioning, documentation) MySQL / PostgreSQL (queries, schema design, indexing, transactions) Redis (caching, sessions) Composer (dependency management) Tools & Technologies: Git / GitHub (version control, branching strategies) Docker / Docker Compose (local development environments) Nginx / Apache (basic configuration) Postman (API testing and documentation) Linux (command line, SSH, file permissions) PHPStorm / VS Code Testing: PHPUnit (unit and feature tests) Other Skills: HTML / CSS / JavaScript (basic frontend, Blade templates) JSON / XML (data formats, API contracts) Agile / Scrum basics English: B2 (technical documentation, communication in international teams)
+
+Projects
+
+Blog REST API Full-featured REST API for a blog platform Built with Laravel 10 and MySQL JWT-based authentication and role-based access control Post, comment, and tag management with filtering and pagination Unit and feature tests with PHPUnit
+
+E-commerce Product Catalog Backend service for managing product catalog Built with Symfony and PostgreSQL Category hierarchy, product attributes, stock management Simple admin panel using Bootstrap
+
+URL Shortener PHP CLI + web service for shortening URLs MySQL-based storage with click tracking Includes basic rate limiting and API key authentication Deployed locally with Docker Compose
+
+All projects are available on GitHub.
+
+Education
+
+National Technical University of Ukraine "Igor Sikorsky Kyiv Polytechnic Institute" Field of Study: Computer Science / Software Engineering 2021 – Present
+
+Additional Information Open to worldwide relocation and remote work Fast learner with strong self-study discipline Experience contributing to team projects under Agile workflow Understanding of software development lifecycle and code review practices
+
+Career Objective
+
+To obtain a Junior PHP Developer position where I can apply my backend development skills, deepen my knowledge of Laravel and Symfony ecosystems, and contribute to real-world web applications in a collaborative professional environment.
+

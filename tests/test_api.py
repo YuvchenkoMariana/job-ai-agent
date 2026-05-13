@@ -60,8 +60,10 @@ class TestGetJobs:
             {"job_title": "A", "source_url": "https://jobs.dou.ua/1"},
             {"job_title": "B", "source_url": "https://jobs.dou.ua/2"},
         ))
-        ids = [j["id"] for j in client.get("/api/jobs").json()]
-        assert ids == sorted(ids)
+        jobs = client.get("/api/jobs").json()
+        # With UUID PKs the only guarantee is that all synced jobs are returned
+        assert len(jobs) == 2
+        assert {j["job_title"] for j in jobs} == {"A", "B"}
 
     def test_response_includes_all_fields(self):
         client.post("/api/jobs/sync", json=make_payload(

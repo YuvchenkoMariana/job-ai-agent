@@ -6,6 +6,18 @@
 
 set -e
 
+# Ensure JS devDependencies (including esbuild) are installed.
+# npm scripts resolve binaries from ./node_modules/.bin automatically, but only
+# after dependencies are installed.
+if [ ! -x "./node_modules/.bin/esbuild" ]; then
+  echo "esbuild not found in ./node_modules/.bin — installing npm dependencies..."
+  if [ -f "package-lock.json" ]; then
+    npm ci
+  else
+    npm install
+  fi
+fi
+
 case "${1:-build}" in
   build)
     echo "Building extension..."
