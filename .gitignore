@@ -3,6 +3,7 @@
 Thumbs.db
 
 # Editor
+.idea/
 chrome_extension/.idea/
 .vscode/
 *.suo
@@ -25,3 +26,4 @@ node_modules/
 .env.local
 
 .claude
+jobs_search.db

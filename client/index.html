@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job AI Agent</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Job AI Agent</h1>
+      <p class="muted">Upload your CV → scrape DOU vacancies → see matches and run enrichment.</p>
+    </header>
+
+    <div class="layout">
+      <div class="col-left">
+
+        <section class="card" id="stepAccount">
+          <h2><span class="step-badge">1</span> Account</h2>
+          <p class="muted">Optional: register/login to keep your data separate. Without login you work as <code>guest</code>.</p>
+
+          <div class="row">
+            <input id="authEmail" type="email" placeholder="email" autocomplete="email" />
+            <input id="authPassword" type="password" placeholder="password" autocomplete="current-password" />
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <button id="registerBtn" class="btn btn-secondary">Register</button>
+            <button id="loginBtn" class="btn btn-primary">Login</button>
+            <button id="logoutBtn" class="btn" disabled>Logout</button>
+          </div>
+
+          <div id="authStatus" class="status muted">Not logged in.</div>
+
+          <div style="margin-top:8px">
+            <button id="guestBtn" class="btn-link">Continue as guest →</button>
+          </div>
+        </section>
+
+        <section class="card" id="stepCvUpload">
+          <h2><span class="step-badge">2</span> Upload your CV</h2>
+
+          <div class="row">
+            <input id="cvFile" type="file" accept=".txt,.md,text/plain,text/markdown" />
+            <button id="uploadBtn" class="btn">Upload CV</button>
+          </div>
+
+          <div id="cvStatus" class="status muted">No CV uploaded yet.</div>
+        </section>
+
+        <section class="card" id="stepEnrich">
+          <h2><span class="step-badge">3</span> Find &amp; enrich jobs</h2>
+          <p class="muted">This runs:</p>
+          <ol class="muted">
+            <li>Fetch full text for all jobs missing <code>full_text</code></li>
+            <li>Enrich all jobs that have <code>full_text</code> but no <code>role_summary</code></li>
+          </ol>
+
+          <div class="row">
+            <button id="startBtn" class="btn btn-primary">Start</button>
+            <button id="refreshBtn" class="btn btn-secondary">Refresh jobs list</button>
+          </div>
+
+          <div id="pipelineStatus" class="status muted">Idle.</div>
+        </section>
+
+        <section class="card" id="stepJobs">
+          <h2>Jobs</h2>
+          <div id="jobsMeta" class="muted"></div>
+          <div id="jobs" class="jobs"></div>
+        </section>
+
+      </div>
+
+      <aside class="col-right">
+        <section class="card sticky">
+          <h2>Match score</h2>
+
+          <div class="row">
+            <button id="matchRefreshBtn" class="btn btn-secondary">Refresh match</button>
+          </div>
+
+          <div id="matchStatus" class="status muted">Upload your CV to compute matches.</div>
+          <div id="matchList" class="match-list"></div>
+
+          <h3 class="h3">Overall analysis</h3>
+          <div id="matchReport" class="status muted">—</div>
+
+          <div id="historySection" hidden>
+            <h3 class="h3">History (previous runs)</h3>
+            <div id="historyList" class="history-list"></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+
